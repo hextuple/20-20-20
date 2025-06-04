@@ -64,10 +64,18 @@ function createTimer(duration, onComplete) {
     timeLeft = duration;
     updateTimerDisplay();
     
+    const startTime = Date.now();
+    const endTime = startTime + (duration * 1000);
+    
     timer = setInterval(() => {
         if (!isPaused) {
-            timeLeft--;
-            updateTimerDisplay();
+            const currentTime = Date.now();
+            const remainingTime = Math.max(0, Math.floor((endTime - currentTime) / 1000));
+            
+            if (remainingTime !== timeLeft) {
+                timeLeft = remainingTime;
+                updateTimerDisplay();
+            }
             
             if (timeLeft <= 0) {
                 clearInterval(timer);
@@ -75,7 +83,7 @@ function createTimer(duration, onComplete) {
                 onComplete();
             }
         }
-    }, 1000);
+    }, 100); // Check more frequently for better accuracy
 }
 
 function startTimer() {

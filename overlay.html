@@ -151,14 +151,22 @@
             
             document.body.classList.toggle('light-mode', !settings.darkMode);
             
+            const startTime = Date.now();
+            const endTime = startTime + (settings.breakInterval * 1000);
+            
             breakTimer = setInterval(() => {
-                breakTimeLeft--;
-                updateBreakTimer();
+                const currentTime = Date.now();
+                const remainingTime = Math.max(0, Math.floor((endTime - currentTime) / 1000));
+                
+                if (remainingTime !== breakTimeLeft) {
+                    breakTimeLeft = remainingTime;
+                    updateBreakTimer();
+                }
                 
                 if (breakTimeLeft <= 0) {
                     endBreak();
                 }
-            }, 1000);
+            }, 100); // Check more frequently for better accuracy
         });
 
         snoozeBtn.addEventListener('click', () => {
