@@ -8,6 +8,7 @@ const store = new Store({
     workInterval: 20, // minutes
     breakInterval: 20, // seconds
     darkMode: false,
+    showCountdown: true,
     activeHours: {
       start: '09:00',
       end: '17:00',
@@ -20,6 +21,7 @@ let mainWindow;
 let overlayWindows = [];  // Array to store multiple overlay windows
 let tray;
 let isQuitting = false;
+let isPaused = false;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -55,13 +57,23 @@ function createWindow() {
 
 function createTray() {
   const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'icon.png'));
-  // Resize icon to 18x18 pixels for macOS menu bar
   const resizedIcon = icon.resize({ width: 18, height: 18 });
   tray = new Tray(resizedIcon);
-  
+  updateTrayMenu();
+  tray.setToolTip('20-20-20 Eye Care');
+}
+
+function updateTrayMenu() {
   const contextMenu = Menu.buildFromTemplate([
     { label: 'Show App', click: () => mainWindow.show() },
-    { label: 'Start Break', click: startBreak },
+    { 
+      label: isPaused ? 'Resume Timer' : 'Pause Timer', 
+      click: () => {
+        isPaused = !isPaused;
+        mainWindow.webContents.send('toggle-pause', isPaused);
+        updateTrayMenu();
+      }
+    },
     { type: 'separator' },
     { label: 'Quit', click: () => {
       isQuitting = true;
@@ -69,12 +81,10 @@ function createTray() {
     }}
   ]);
 
-  tray.setToolTip('20-20-20 Eye Care');
   tray.setContextMenu(contextMenu);
 }
 
 function createOverlayWindows() {
-  // Get all displays
   const displays = screen.getAllDisplays();
   
   // Create an overlay window for each display
@@ -101,7 +111,6 @@ function createOverlayWindows() {
     overlayWindow.setAlwaysOnTop(true, 'screen-saver');
     overlayWindow.setIgnoreMouseEvents(false);
     
-    // Prevent keyboard interaction
     overlayWindow.webContents.on('before-input-event', (event, input) => {
       // Allow only Escape key to close the window
       if (input.key !== 'Escape') {
@@ -133,7 +142,6 @@ function startBreak() {
 }
 
 app.whenReady().then(() => {
-  // Set the dock icon
   if (process.platform === 'darwin') {
     app.dock.setIcon(path.join(__dirname, 'assets', 'icon.png'));
   }
@@ -141,7 +149,6 @@ app.whenReady().then(() => {
   createTray();
   mainWindow.show();
 
-  // Request notification permission
   if (process.platform === 'darwin') {
     app.dock.setMenu(Menu.buildFromTemplate([
       { label: 'Show', click: () => mainWindow.show() }
@@ -209,4 +216,22 @@ app.on('before-quit', () => {
     window.destroy();
   });
   overlayWindows = [];
+});
+
+// Add function to update tray title with countdown
+function updateTrayCountdown(timeLeft) {
+  if (!store.get('showCountdown')) {
+    tray.setTitle('');
+    return;
+  }
+  
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+  const countdown = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  tray.setTitle(countdown);
+}
+
+// Add IPC handler for countdown updates
+ipcMain.on('update-countdown', (event, timeLeft) => {
+  updateTrayCountdown(timeLeft);
 }); 

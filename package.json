@@ -25,7 +25,8 @@
     "productName": "20-20-20 Eye Care",
     "mac": {
       "category": "public.app-category.healthcare-fitness",
-      "target": ["dmg", "zip"]
+      "target": ["dmg", "zip"],
+      "icon": "assets/icon.png"
     },
     "win": {
       "target": ["nsis", "portable"]

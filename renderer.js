@@ -10,6 +10,7 @@ const closeBtn = document.getElementById('close-btn');
 const workIntervalInput = document.getElementById('work-interval');
 const breakIntervalInput = document.getElementById('break-interval');
 const darkModeInput = document.getElementById('dark-mode');
+const showCountdownInput = document.getElementById('show-countdown');
 
 // Stats elements
 const breaksTakenEl = document.getElementById('breaks-taken');
@@ -18,6 +19,7 @@ const streakEl = document.getElementById('streak');
 let timer = null;
 let timeLeft;
 let settings;
+let isPaused = false;
 let stats = {
     breaksTaken: 0,
     streak: 0
@@ -35,6 +37,7 @@ function loadSettings() {
     workIntervalInput.value = settings.workInterval;
     breakIntervalInput.value = settings.breakInterval;
     darkModeInput.checked = settings.darkMode;
+    showCountdownInput.checked = settings.showCountdown;
     document.body.classList.toggle('dark-mode', settings.darkMode);
 }
 
@@ -48,27 +51,35 @@ function updateTimerDisplay() {
     const seconds = timeLeft % 60;
     minutesEl.textContent = minutes.toString().padStart(2, '0');
     secondsEl.textContent = seconds.toString().padStart(2, '0');
+    // Send countdown update to main process
+    ipcRenderer.send('update-countdown', timeLeft);
 }
 
-function startTimer() {
+function createTimer(duration, onComplete) {
     if (timer) {
         clearInterval(timer);
         timer = null;
     }
 
-    timeLeft = settings.workInterval * 60;
+    timeLeft = duration;
     updateTimerDisplay();
     
     timer = setInterval(() => {
-        timeLeft--;
-        updateTimerDisplay();
-        
-        if (timeLeft <= 0) {
-            clearInterval(timer);
-            timer = null;
-            startBreak();
+        if (!isPaused) {
+            timeLeft--;
+            updateTimerDisplay();
+            
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                timer = null;
+                onComplete();
+            }
         }
     }, 1000);
+}
+
+function startTimer() {
+    createTimer(settings.workInterval * 60, startBreak);
 }
 
 function startBreak() {
@@ -104,6 +115,14 @@ darkModeInput.addEventListener('change', async () => {
     document.body.classList.toggle('dark-mode', settings.darkMode);
 });
 
+// Add settings change handler for countdown toggle
+showCountdownInput.addEventListener('change', async () => {
+    settings.showCountdown = showCountdownInput.checked;
+    await ipcRenderer.invoke('update-settings', settings);
+    // Update tray immediately when setting changes
+    ipcRenderer.send('update-countdown', timeLeft);
+});
+
 // Add IPC listener for break end
 ipcRenderer.on('break-ended', () => {
     if (!timer) {
@@ -113,24 +132,14 @@ ipcRenderer.on('break-ended', () => {
 
 // Add IPC listener for snooze
 ipcRenderer.on('break-snoozed', () => {
-    if (timer) {
-        clearInterval(timer);
-        timer = null;
-    }
-    
-    timeLeft = 300; // 5 minutes in seconds
+    createTimer(300, startBreak); // 5 minutes in seconds
+});
+
+// Add IPC listener for pause toggle
+ipcRenderer.on('toggle-pause', (event, paused) => {
+    isPaused = paused;
+    // Update the countdown display immediately when paused/resumed
     updateTimerDisplay();
-    
-    timer = setInterval(() => {
-        timeLeft--;
-        updateTimerDisplay();
-        
-        if (timeLeft <= 0) {
-            clearInterval(timer);
-            timer = null;
-            startBreak();
-        }
-    }, 1000);
 });
 
 // Initialize the app
