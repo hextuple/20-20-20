@@ -1,4 +1,4 @@
-# 20-20-20 Eye Care
+# 20-20-20
 
 A desktop application that helps you follow the 20-20-20 rule to reduce eye strain. Every 20 minutes, take a 20-second break to look at something 20 feet away.
 
