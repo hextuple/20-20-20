@@ -133,6 +133,10 @@ function startBreak() {
 }
 
 app.whenReady().then(() => {
+  // Set the dock icon
+  if (process.platform === 'darwin') {
+    app.dock.setIcon(path.join(__dirname, 'assets', 'icon.png'));
+  }
   createWindow();
   createTray();
   mainWindow.show();
